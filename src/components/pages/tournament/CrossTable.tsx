@@ -1,19 +1,20 @@
 "use client";
 
-import type { Match } from "@/types";
+import type { Match, StandingRow } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { countSets } from "@/lib/scoring";
 
 interface Props {
-  /** Игроки в порядке мест */
-  playerIds: string[];
+  /** Строки таблицы в порядке мест: из них берутся очки (О) и место (М) */
+  standings: StandingRow[];
   matches: Match[];
   onMatchClick: (m: Match) => void;
 }
 
 /** Шахматка: результат каждой встречи с точки зрения игрока в строке */
-export default function CrossTable({ playerIds, matches, onMatchClick }: Props) {
+export default function CrossTable({ standings, matches, onMatchClick }: Props) {
   const { playerById } = useData();
+  const playerIds = standings.map((r) => r.playerId);
 
   function findMatch(a: string, b: string) {
     return matches.find((m) => (m.p1 === a && m.p2 === b) || (m.p1 === b && m.p2 === a));
@@ -30,10 +31,18 @@ export default function CrossTable({ playerIds, matches, onMatchClick }: Props) 
                 {i + 1}
               </th>
             ))}
+            <th className="w-12 px-1 py-2 text-center text-xs font-semibold" title="Очки: 2 за победу, 1 за поражение">
+              О
+            </th>
+            <th className="w-12 px-1 py-2 text-center text-xs font-semibold" title="Место">
+              М
+            </th>
           </tr>
         </thead>
         <tbody>
-          {playerIds.map((rowId, i) => (
+          {standings.map((row, i) => {
+            const rowId = row.playerId;
+            return (
             <tr key={rowId}>
               <td className="sticky left-0 whitespace-nowrap bg-card py-1 pr-3 text-sm">
                 <span className="mr-2 text-xs text-muted">{i + 1}</span>
@@ -65,8 +74,11 @@ export default function CrossTable({ playerIds, matches, onMatchClick }: Props) 
                   </td>
                 );
               })}
+              <td className="px-1 text-center font-semibold tabular-nums">{row.score}</td>
+              <td className="px-1 text-center font-semibold tabular-nums">{row.played > 0 ? row.place : "–"}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

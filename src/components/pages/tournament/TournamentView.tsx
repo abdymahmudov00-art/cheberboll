@@ -120,7 +120,7 @@ export default function TournamentView({ id }: { id: string }) {
               <Card className="p-4">
                 <div className="mb-2 text-sm font-medium text-muted">Шахматка · нажмите на клетку, чтобы ввести счёт</div>
                 <CrossTable
-                  playerIds={g.standings.map((r) => r.playerId)}
+                  standings={g.standings}
                   matches={g.matches}
                   onMatchClick={openMatch}
                 />
