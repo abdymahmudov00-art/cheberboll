@@ -1,20 +1,30 @@
-import type { SetScore, Tournament } from "@/types";
-import type { Scores } from "./tournament";
+import type { MatchResult, Player, Tournament } from "@/types";
+import type { Results } from "./tournament";
 
 /**
- * Хранилище демо-версии: созданные турниры и введённые результаты.
+ * Хранилище демо-версии: созданные турниры и игроки, введённые результаты, матчи за столами.
  * Живёт в браузере (localStorage). Когда появится backend, его заменят запросы к API.
  */
 
-export interface DemoState {
-  version: 1;
-  createdTournaments: Tournament[];
-  /** Результаты, введённые пользователем, поверх тестовых. null — результат удалён. */
-  scores: Record<string, SetScore[] | null>;
+export interface LiveMatch {
+  table: number;
+  /** Время вызова к столу, мс */
+  startedAt: number;
 }
 
-const KEY = "cheber-boll-demo-v1";
-const EMPTY: DemoState = { version: 1, createdTournaments: [], scores: {} };
+export interface DemoState {
+  version: 3;
+  createdTournaments: Tournament[];
+  createdPlayers: Player[];
+  /** Результаты, введённые пользователем, поверх тестовых. null — результат удалён. */
+  results: Record<string, MatchResult | null>;
+  /** Матчи, которые сейчас играются: id матча → стол */
+  live: Record<string, LiveMatch>;
+}
+
+// Номер версии меняется, когда старые сохранённые данные больше не подходят (сброс у всех)
+const KEY = "cheber-boll-demo-v3";
+const EMPTY: DemoState = { version: 3, createdTournaments: [], createdPlayers: [], results: {}, live: {} };
 
 let state: DemoState = EMPTY;
 let loaded = false;
@@ -27,7 +37,7 @@ function load() {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw) as DemoState;
-    if (parsed?.version === 1) state = parsed;
+    if (parsed?.version === 3) state = { ...EMPTY, ...parsed };
   } catch {
     // повреждённые данные или запрет доступа: работаем с пустым состоянием
   }
@@ -47,6 +57,12 @@ function update(next: DemoState) {
   listeners.forEach((l) => l());
 }
 
+function withoutLive(id: string): Record<string, LiveMatch> {
+  const live = { ...state.live };
+  delete live[id];
+  return live;
+}
+
 export const demoStore = {
   subscribe(listener: () => void) {
     load();
@@ -60,11 +76,23 @@ export const demoStore = {
   getServerSnapshot(): DemoState {
     return EMPTY;
   },
-  setScore(matchId: string, sets: SetScore[] | null) {
-    update({ ...state, scores: { ...state.scores, [matchId]: sets } });
+  /** Записать или удалить результат. Матч при этом освобождает стол. */
+  setResult(matchId: string, result: MatchResult | null) {
+    update({ ...state, results: { ...state.results, [matchId]: result }, live: withoutLive(matchId) });
+  },
+  /** Вызвать пару к столу */
+  startMatch(matchId: string, table: number) {
+    update({ ...state, live: { ...state.live, [matchId]: { table, startedAt: Date.now() } } });
+  },
+  /** Отменить игру: матч возвращается в ожидание */
+  cancelMatch(matchId: string) {
+    update({ ...state, live: withoutLive(matchId) });
   },
   addTournament(t: Tournament) {
     update({ ...state, createdTournaments: [...state.createdTournaments, t] });
+  },
+  addPlayer(p: Player) {
+    update({ ...state, createdPlayers: [...state.createdPlayers, p] });
   },
   reset() {
     update(EMPTY);
@@ -72,10 +100,10 @@ export const demoStore = {
 };
 
 /** Тестовые результаты + изменения пользователя */
-export function mergeScores(seed: Scores, overrides: DemoState["scores"]): Scores {
-  const result: Scores = { ...seed };
-  for (const [id, sets] of Object.entries(overrides)) {
-    if (sets) result[id] = sets;
+export function mergeResults(seed: Results, overrides: DemoState["results"]): Results {
+  const result: Results = { ...seed };
+  for (const [id, r] of Object.entries(overrides)) {
+    if (r) result[id] = r;
     else delete result[id];
   }
   return result;

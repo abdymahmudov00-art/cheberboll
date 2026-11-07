@@ -1,5 +1,5 @@
-import type { Match, Player, SetScore, Tournament } from "@/types";
-import { buildTournament, type Scores } from "./tournament";
+import type { Match, MatchResult, Player, SetScore, Tournament } from "@/types";
+import { buildTournament, type Results } from "./tournament";
 import { hashString, mulberry32 } from "./random";
 import { setsToWin } from "./scoring";
 
@@ -29,14 +29,16 @@ function simulateMatch(m: Match, rating: Record<string, number>, bestOf: number)
 }
 
 /** Заполняет тестовые турниры результатами. Детерминированно: одинаково на сервере и в браузере. */
-export function generateSeedScores(
+export function generateSeedResults(
   players: Player[],
   tournaments: Tournament[],
   autoplay: Record<string, number | "all">,
-): Scores {
+  /** Матчи, где в демо будет неявка: id матча → кто победил */
+  walkovers: Record<string, 1 | 2> = {},
+): Results {
   const rating: Record<string, number> = {};
   for (const p of players) rating[p.id] = p.startRating;
-  const scores: Scores = {};
+  const scores: Results = {};
 
   for (const t of tournaments) {
     const limit = autoplay[t.id];
@@ -47,7 +49,11 @@ export function generateSeedScores(
       if (limit !== "all" && played >= limit) break;
       const next = buildTournament(t, scores).matches.find((m) => m.p1 && m.p2 && !m.winner);
       if (!next) break;
-      scores[next.id] = simulateMatch(next, rating, t.bestOf);
+      const w = walkovers[next.id];
+      const result: MatchResult = w
+        ? { type: "walkover", winner: w }
+        : { type: "sets", sets: simulateMatch(next, rating, t.bestOf) };
+      scores[next.id] = result;
       played++;
     }
   }

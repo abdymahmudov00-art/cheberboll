@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, Delta, EmptyState, SectionTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
-import { countSets, formatSets } from "@/lib/scoring";
-import { formatDate } from "@/lib/labels";
+import { formatSets } from "@/lib/scoring";
+import { formatDate, scoreFor } from "@/lib/labels";
 import RatingChart from "./RatingChart";
 
 export default function PlayerView({ id }: { id: string }) {
@@ -55,7 +55,11 @@ export default function PlayerView({ id }: { id: string }) {
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{player.name}</h1>
-            <p className="text-muted">{player.city}</p>
+            <p className="text-muted">
+              {player.city}
+              {player.birthYear ? `, ${player.birthYear} г.р.` : ""}
+              {player.hand ? ` · ${player.hand === "right" ? "правая" : "левая"} рука` : ""}
+            </p>
           </div>
           <div className="text-right text-sm text-muted">
             С начала сезона: <Delta value={diff} />
@@ -107,8 +111,6 @@ export default function PlayerView({ id }: { id: string }) {
               {matches.map(({ match: m, tournament, delta }) => {
                 const isP1 = m.p1 === id;
                 const opp = isP1 ? m.p2 : m.p1;
-                const [a, b] = countSets(m.sets ?? []);
-                const [mine, theirs] = isP1 ? [a, b] : [b, a];
                 const win = m.winner === id;
                 return (
                   <li key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
@@ -127,7 +129,7 @@ export default function PlayerView({ id }: { id: string }) {
                     </span>
                     <span className="hidden text-xs text-muted sm:inline">{m.sets && formatSets(m.sets)}</span>
                     <span className="font-semibold tabular-nums">
-                      {mine}:{theirs}
+                      {scoreFor(m, id)}
                     </span>
                     <span className="w-10 text-right tabular-nums">
                       <Delta value={isP1 ? delta[0] : delta[1]} />

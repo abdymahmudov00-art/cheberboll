@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, Delta, PageTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
+import AddPlayerDialog from "@/components/ui/AddPlayerDialog";
 
 export default function RatingsView() {
   const { players, rating } = useData();
   const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const stats = new Map<string, { won: number; lost: number; last: number }>();
   for (const p of players) stats.set(p.id, { won: 0, lost: 0, last: 0 });
@@ -36,7 +38,19 @@ export default function RatingsView() {
 
   return (
     <div>
-      <PageTitle title="Рейтинг игроков" subtitle="Пересчитывается после каждого сыгранного матча" />
+      <PageTitle
+        title="Рейтинг игроков"
+        subtitle="Пересчитывается после каждого сыгранного матча"
+        action={
+          <button
+            onClick={() => setAdding(true)}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            + Добавить игрока
+          </button>
+        }
+      />
+      {adding && <AddPlayerDialog onClose={() => setAdding(false)} />}
 
       <input
         value={query}

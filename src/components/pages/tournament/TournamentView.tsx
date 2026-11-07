@@ -6,15 +6,16 @@ import type { Match } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, EmptyState, SectionTitle, StatusBadge } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
-import { FORMAT_LABELS, formatDate, pluralRu } from "@/lib/labels";
+import { FORMAT_LABELS, KIND_LABELS, formatDate, formatMoney, pluralRu } from "@/lib/labels";
+import TournamentInfo from "./TournamentInfo";
+import TableBoard from "./TableBoard";
 import { setsToWin } from "@/lib/scoring";
-import StandingsTable from "./StandingsTable";
 import CrossTable from "./CrossTable";
 import Bracket from "./Bracket";
 import MatchList from "./MatchList";
 import ScoreDialog from "./ScoreDialog";
 
-type Tab = "tables" | "bracket" | "matches" | "players";
+type Tab = "info" | "live" | "tables" | `bracket-${number}` | "matches" | "players";
 
 export default function TournamentView({ id }: { id: string }) {
   const { data, rating } = useData();
@@ -32,14 +33,20 @@ export default function TournamentView({ id }: { id: string }) {
 
   const t = d.tournament;
   const hasTables = d.groups.length > 0;
-  const hasBracket = d.bracket !== null;
+  const isGroups = d.groups.some((g) => g.kind === "group");
+  const groupsDone = d.groups.filter((g) => g.kind === "group").every((g) => g.complete);
   const tabs: { key: Tab; label: string }[] = [
-    ...(hasTables ? [{ key: "tables" as const, label: t.format === "groups-playoff" ? "Группы" : "Таблица" }] : []),
-    ...(hasBracket ? [{ key: "bracket" as const, label: "Сетка" }] : []),
+    { key: "info", label: "О турнире" },
+    ...(d.status !== "finished" ? [{ key: "live" as const, label: "Столы" }] : []),
+    ...(hasTables ? [{ key: "tables" as const, label: isGroups ? (d.groups.some((g) => g.kind === "final") ? "Группы и финалы" : "Группы") : "Таблица" }] : []),
+    ...d.brackets.map((b, i) => ({ key: `bracket-${i}` as const, label: b.title })),
     { key: "matches", label: "Матчи" },
     { key: "players", label: "Участники" },
   ];
-  const activeTab: Tab = tab ?? tabs[0].key;
+  const mainTab: Tab = hasTables ? "tables" : d.brackets.length ? "bracket-0" : "matches";
+  // Предстоящий турнир открывается на информации, остальные — на таблице или сетке
+  const activeTab: Tab = tab && tabs.some((x) => x.key === tab) ? tab : d.status === "upcoming" ? "info" : mainTab;
+  const bracketIndex = activeTab.startsWith("bracket-") ? Number(activeTab.slice(8)) : -1;
   const total = d.matches.length;
   const progress = total ? Math.round((d.playedCount / total) * 100) : 0;
   const champion = d.placements.find((p) => p.place === "1");
@@ -59,11 +66,15 @@ export default function TournamentView({ id }: { id: string }) {
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={d.status} />
+              {t.kind && (
+                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted">{KIND_LABELS[t.kind]}</span>
+              )}
               <span className="text-sm text-muted">{FORMAT_LABELS[t.format]}</span>
             </div>
             <h1 className="text-2xl font-bold sm:text-3xl">{t.name}</h1>
             <p className="mt-1 text-muted">
-              {formatDate(t.date)} · {t.venue}
+              {formatDate(t.date)}
+              {t.time && `, ${t.time}`} · {t.venue}
             </p>
             <p className="mt-1 text-sm text-muted">
               {t.playerIds.length} {pluralRu(t.playerIds.length, "участник", "участника", "участников")} · матчи до{" "}
@@ -90,6 +101,22 @@ export default function TournamentView({ id }: { id: string }) {
             </div>
           )}
         </div>
+
+        <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            ["Начало", t.time ?? "—"],
+            ["Разминка", t.warmupTime ? `с ${t.warmupTime}` : "—"],
+            ["Взнос", t.fee !== undefined ? formatMoney(t.fee) : "—"],
+            ["Участники", `${t.playerIds.length}${t.playerLimit ? ` / ${t.playerLimit}` : ""}`],
+            ["Рейтинг", t.maxRating ? `до ${t.maxRating}` : "открытый"],
+            ["Контакт", t.contactPhone ?? "—"],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="font-medium tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
       </Card>
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
@@ -106,23 +133,34 @@ export default function TournamentView({ id }: { id: string }) {
         ))}
       </div>
 
+      {activeTab === "info" && <TournamentInfo tournament={t} />}
+
+      {activeTab === "live" && <TableBoard data={d} onMatchClick={openMatch} />}
+
       {activeTab === "tables" && (
         <div className="space-y-6">
+          {t.format === "groups-rr-finals" && !d.groups.some((g) => g.kind === "final") && (
+            <p className="rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
+              Финалы по кругу сформируются, когда будут сыграны все матчи в группах.
+            </p>
+          )}
           {d.groups.map((g) => (
             <section key={g.name}>
-              <SectionTitle>{g.name}</SectionTitle>
-              <Card className="mb-4">
-                <StandingsTable
-                  rows={g.standings}
-                  highlightTop={t.format === "groups-playoff" ? (t.advancePerGroup ?? 2) : 3}
-                />
-              </Card>
+              <SectionTitle>
+                {g.name}
+                {g.kind === "final" && (
+                  <span className="ml-2 text-sm font-normal text-muted">
+                    · места {g.placeOffset + 1}–{g.placeOffset + g.playerIds.length}, встречи из группы засчитаны
+                  </span>
+                )}
+              </SectionTitle>
               <Card className="p-4">
                 <div className="mb-2 text-sm font-medium text-muted">Шахматка · нажмите на клетку, чтобы ввести счёт</div>
                 <CrossTable
                   standings={g.standings}
                   matches={g.matches}
                   onMatchClick={openMatch}
+                  placeOffset={g.placeOffset}
                 />
               </Card>
             </section>
@@ -130,15 +168,15 @@ export default function TournamentView({ id }: { id: string }) {
         </div>
       )}
 
-      {activeTab === "bracket" && d.bracket && (
+      {bracketIndex >= 0 && d.brackets[bracketIndex] && (
         <div>
-          {t.format === "groups-playoff" && !d.groups.every((g) => g.complete) && (
+          {isGroups && !groupsDone && (
             <p className="mb-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
               Сетка заполнится, когда будут сыграны все матчи в группах.
             </p>
           )}
           <Card className="p-4">
-            <Bracket rounds={d.bracket} onMatchClick={openMatch} />
+            <Bracket bracket={d.brackets[bracketIndex]} onMatchClick={openMatch} />
           </Card>
         </div>
       )}

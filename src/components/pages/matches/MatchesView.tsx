@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, Delta, EmptyState, PageTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
-import { countSets, formatSets } from "@/lib/scoring";
-import { formatDate } from "@/lib/labels";
+import { formatSets } from "@/lib/scoring";
+import { formatDate, matchScoreText } from "@/lib/labels";
 
 export default function MatchesView() {
   const { rating, tournaments, playerById } = useData();
@@ -71,7 +71,6 @@ export default function MatchesView() {
             <Card>
               <ul className="divide-y divide-border">
                 {g.items.map(({ match: m, delta }) => {
-                  const [a, b] = countSets(m.sets ?? []);
                   return (
                     <li key={m.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 text-sm sm:grid-cols-[9rem_1fr_auto_1fr_auto]">
                       <span className="hidden text-xs text-muted sm:block">{m.label}</span>
@@ -79,7 +78,7 @@ export default function MatchesView() {
                         <PlayerName id={m.p1} /> <span className="text-xs font-normal"><Delta value={delta[0]} /></span>
                       </span>
                       <span className="rounded-md bg-foreground/5 px-2 py-0.5 text-center font-semibold tabular-nums">
-                        {a}:{b}
+                        {matchScoreText(m)}
                       </span>
                       <span className={m.winner === m.p2 ? "font-semibold" : ""}>
                         <PlayerName id={m.p2} /> <span className="text-xs font-normal"><Delta value={delta[1]} /></span>

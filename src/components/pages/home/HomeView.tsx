@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useData } from "@/components/providers/DataProvider";
 import { ButtonLink, Card, Delta, SectionTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
-import { countSets } from "@/lib/scoring";
+import { matchScoreText } from "@/lib/labels";
 import TournamentCard from "@/components/pages/tournaments/TournamentCard";
 
 export default function HomeView() {
@@ -88,7 +88,6 @@ export default function HomeView() {
           <Card>
             <ul className="divide-y divide-border">
               {recent.map(({ match: m, tournament, delta }) => {
-                const [a, b] = countSets(m.sets ?? []);
                 return (
                   <li key={m.id} className="px-4 py-3 text-sm">
                     <div className="mb-1 text-xs text-muted">
@@ -102,7 +101,7 @@ export default function HomeView() {
                         <Delta value={delta[0]} />
                       </span>
                       <span className="mx-1 font-semibold tabular-nums">
-                        {a}:{b}
+                        {matchScoreText(m)}
                       </span>
                       <span className={m.winner === m.p2 ? "font-semibold" : ""}>
                         <PlayerName id={m.p2} />

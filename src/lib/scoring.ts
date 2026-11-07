@@ -1,4 +1,4 @@
-import type { SetScore } from "@/types";
+import type { MatchResult, SetScore } from "@/types";
 
 /** Проверка одной партии по правилам настольного тенниса. Возвращает текст ошибки или null. */
 export function setError(a: number, b: number): string | null {
@@ -55,4 +55,37 @@ export function winnerSide(sets: SetScore[], bestOf: number): 1 | 2 | null {
 
 export function formatSets(sets: SetScore[]): string {
   return sets.map(([a, b]) => `${a}:${b}`).join(", ");
+}
+
+/* ---------- Результат матча целиком ---------- */
+
+/** Проверка результата. Возвращает текст ошибки или null. */
+export function resultError(r: MatchResult, bestOf: number): string | null {
+  if (r.type === "walkover") return null;
+  if (r.type === "sets") return matchResultError(r.sets, bestOf);
+  const need = setsToWin(bestOf);
+  const [a, b] = r.score;
+  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0) return "Некорректный счёт";
+  if (!((a === need && b < need) || (b === need && a < need))) return `Матч идёт до ${need} побед в партиях`;
+  return null;
+}
+
+/** 1 или 2 — кто победил; null — результат некорректен */
+export function resultWinner(r: MatchResult, bestOf: number): 1 | 2 | null {
+  if (resultError(r, bestOf)) return null;
+  if (r.type === "walkover") return r.winner;
+  const [a, b] = r.type === "sets" ? countSets(r.sets) : r.score;
+  return a > b ? 1 : 2;
+}
+
+/** Итог по партиям; для неявки — null */
+export function resultScore(r: MatchResult): [number, number] | null {
+  if (r.type === "walkover") return null;
+  return r.type === "sets" ? countSets(r.sets) : r.score;
+}
+
+/** Готовые варианты счёта для быстрых кнопок: [[3,0],[3,1],[3,2]] */
+export function quickScores(bestOf: number): [number, number][] {
+  const need = setsToWin(bestOf);
+  return Array.from({ length: need }, (_, i) => [need, i] as [number, number]);
 }

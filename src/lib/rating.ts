@@ -58,6 +58,11 @@ export function computeRatings(
       const r1 = ratings[m.p1];
       const r2 = ratings[m.p2];
       if (r1 === undefined || r2 === undefined) continue;
+      // неявка (W:L) попадает в историю, но рейтинг не меняет
+      if (m.walkover) {
+        played.push({ match: m, tournament: t, delta: [0, 0], before: [r1, r2] });
+        continue;
+      }
       const s1 = m.winner === m.p1 ? 1 : 0;
       const d1 = Math.round(K * (s1 - expectedScore(r1, r2)));
       ratings[m.p1] = r1 + d1;
