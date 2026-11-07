@@ -1,0 +1,12 @@
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
