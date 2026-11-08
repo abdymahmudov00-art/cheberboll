@@ -3,6 +3,7 @@
 import type { Match, StandingRow } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { scoreFor } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   /** Строки таблицы: из них берутся очки (О) и место (М) */
@@ -16,6 +17,7 @@ interface Props {
 /** Шахматка: результат каждой встречи с точки зрения игрока в строке */
 export default function CrossTable({ standings, matches, onMatchClick, placeOffset = 0 }: Props) {
   const { playerById, live } = useData();
+  const { t } = useI18n();
   const playerIds = standings.map((r) => r.playerId);
 
   function findMatches(a: string, b: string) {
@@ -33,7 +35,7 @@ export default function CrossTable({ standings, matches, onMatchClick, placeOffs
           ? "bg-win/10 text-win font-semibold hover:bg-win/20"
           : "bg-loss/10 text-loss hover:bg-loss/20";
     } else if (table) {
-      label = `${table} ст`;
+      label = t("ct.tableShort", { n: table });
       cls = "bg-win text-white font-semibold";
     }
     return (
@@ -41,10 +43,10 @@ export default function CrossTable({ standings, matches, onMatchClick, placeOffs
         key={m.id}
         onClick={() => onMatchClick(m)}
         className={`h-9 w-full min-w-12 rounded-md text-center tabular-nums transition ${cls}`}
-        title={m.carried ? "Встреча из группы, засчитана в финале" : "Открыть счёт матча"}
+        title={m.carried ? t("ct.carried") : t("ct.open")}
       >
         {label}
-        {m.carried && <sup className="ml-0.5 text-[9px] opacity-70">гр</sup>}
+        {m.carried && <sup className="ml-0.5 text-[9px] opacity-70">{t("ct.gr")}</sup>}
       </button>
     );
   }
@@ -60,11 +62,11 @@ export default function CrossTable({ standings, matches, onMatchClick, placeOffs
                 {i + 1}
               </th>
             ))}
-            <th className="w-12 px-1 py-2 text-center text-xs font-semibold" title="Очки: 2 за победу, 1 за поражение, 0 за неявку">
-              О
+            <th className="w-12 px-1 py-2 text-center text-xs font-semibold" title={t("ct.Otitle")}>
+              {t("ct.O")}
             </th>
-            <th className="w-12 px-1 py-2 text-center text-xs font-semibold" title="Место">
-              М
+            <th className="w-12 px-1 py-2 text-center text-xs font-semibold" title={t("ct.Mtitle")}>
+              {t("ct.M")}
             </th>
           </tr>
         </thead>

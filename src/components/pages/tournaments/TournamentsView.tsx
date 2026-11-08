@@ -5,14 +5,16 @@ import type { TournamentStatus } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { ButtonLink, EmptyState, PageTitle } from "@/components/ui";
 import TournamentCard from "./TournamentCard";
+import { useI18n } from "@/hooks/useI18n";
+import type { TKey } from "@/lib/i18n";
 
 type Filter = "all" | TournamentStatus;
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "Все" },
-  { key: "live", label: "Идут" },
-  { key: "upcoming", label: "Предстоящие" },
-  { key: "finished", label: "Завершённые" },
+const FILTERS: { key: Filter; label: TKey }[] = [
+  { key: "all", label: "filter.all" },
+  { key: "live", label: "filter.live" },
+  { key: "upcoming", label: "filter.upcoming" },
+  { key: "finished", label: "filter.finished" },
 ];
 
 const ORDER: Record<TournamentStatus, number> = { live: 0, upcoming: 1, finished: 2 };
@@ -20,6 +22,7 @@ const ORDER: Record<TournamentStatus, number> = { live: 0, upcoming: 1, finished
 export default function TournamentsView() {
   const { tournaments, data } = useData();
   const [filter, setFilter] = useState<Filter>("all");
+  const { t } = useI18n();
 
   const list = tournaments
     .map((t) => data[t.id])
@@ -38,9 +41,9 @@ export default function TournamentsView() {
   return (
     <div>
       <PageTitle
-        title="Турниры"
-        subtitle="Расписание, таблицы и результаты"
-        action={<ButtonLink href="/tournaments/new">+ Создать турнир</ButtonLink>}
+        title={t("nav.tournaments")}
+        subtitle={t("list.subtitle")}
+        action={<ButtonLink href="/tournaments/new">{t("list.create")}</ButtonLink>}
       />
 
       <div className="mb-6 flex gap-2 overflow-x-auto">
@@ -52,7 +55,7 @@ export default function TournamentsView() {
               filter === f.key ? "bg-foreground text-background" : "border border-border bg-card text-muted hover:text-foreground"
             }`}
           >
-            {f.label} <span className="opacity-60">{count(f.key)}</span>
+            {t(f.label)} <span className="opacity-60">{count(f.key)}</span>
           </button>
         ))}
       </div>
@@ -64,7 +67,7 @@ export default function TournamentsView() {
           ))}
         </div>
       ) : (
-        <EmptyState>В этой категории турниров нет</EmptyState>
+        <EmptyState>{t("list.empty")}</EmptyState>
       )}
     </div>
   );

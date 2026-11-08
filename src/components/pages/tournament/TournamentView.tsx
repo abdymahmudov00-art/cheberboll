@@ -6,7 +6,8 @@ import type { Match } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, EmptyState, SectionTitle, StatusBadge } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
-import { FORMAT_LABELS, KIND_LABELS, formatDate, formatMoney, pluralRu } from "@/lib/labels";
+import { formatMoney } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 import TournamentInfo from "./TournamentInfo";
 import TableBoard from "./TableBoard";
 import { setsToWin } from "@/lib/scoring";
@@ -18,15 +19,16 @@ import ScoreDialog from "./ScoreDialog";
 type Tab = "info" | "live" | "tables" | `bracket-${number}` | "matches" | "players";
 
 export default function TournamentView({ id }: { id: string }) {
-  const { data, rating } = useData();
+  const { data, rating, unlocked, setUnlocked } = useData();
+  const { t: tr, tg, date, plural } = useI18n();
   const d = data[id];
   const [tab, setTab] = useState<Tab | null>(null);
-  const [editing, setEditing] = useState<Match | null>(null);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
   if (!d) {
     return (
       <EmptyState>
-        Турнир не найден. <Link href="/tournaments" className="text-accent hover:underline">К списку турниров</Link>
+        {tr("t.notFound")} <Link href="/tournaments" className="text-accent hover:underline">{tr("t.toList")}</Link>
       </EmptyState>
     );
   }
@@ -36,12 +38,12 @@ export default function TournamentView({ id }: { id: string }) {
   const isGroups = d.groups.some((g) => g.kind === "group");
   const groupsDone = d.groups.filter((g) => g.kind === "group").every((g) => g.complete);
   const tabs: { key: Tab; label: string }[] = [
-    { key: "info", label: "О турнире" },
-    ...(d.status !== "finished" ? [{ key: "live" as const, label: "Столы" }] : []),
-    ...(hasTables ? [{ key: "tables" as const, label: isGroups ? (d.groups.some((g) => g.kind === "final") ? "Группы и финалы" : "Группы") : "Таблица" }] : []),
-    ...d.brackets.map((b, i) => ({ key: `bracket-${i}` as const, label: b.title })),
-    { key: "matches", label: "Матчи" },
-    { key: "players", label: "Участники" },
+    { key: "info", label: tr("tab.info") },
+    ...(d.status !== "finished" ? [{ key: "live" as const, label: tr("tab.live") }] : []),
+    ...(hasTables ? [{ key: "tables" as const, label: isGroups ? (d.groups.some((g) => g.kind === "final") ? tr("tab.groupsFinals") : tr("tab.groups")) : tr("tab.table") }] : []),
+    ...d.brackets.map((b, i) => ({ key: `bracket-${i}` as const, label: tg(b.title) })),
+    { key: "matches", label: tr("tab.matches") },
+    { key: "players", label: tr("tab.players") },
   ];
   const mainTab: Tab = hasTables ? "tables" : d.brackets.length ? "bracket-0" : "matches";
   // Предстоящий турнир открывается на информации, остальные — на таблице или сетке
@@ -51,14 +53,18 @@ export default function TournamentView({ id }: { id: string }) {
   const progress = total ? Math.round((d.playedCount / total) * 100) : 0;
   const champion = d.placements.find((p) => p.place === "1");
 
+  // Завершённый турнир закрыт для изменений, пока организатор не откроет его для правок
+  const locked = d.status === "finished" && !unlocked[id];
+  const editing = Boolean(unlocked[id]);
+
   const openMatch = (m: Match) => {
-    if (m.p1 && m.p2 && !m.bye) setEditing(m);
+    if (m.p1 && m.p2 && !m.bye) setEditingMatch(m);
   };
 
   return (
     <div>
       <Link href="/tournaments" className="mb-4 inline-block text-sm text-muted hover:text-accent">
-        ← Все турниры
+        {tr("t.back")}
       </Link>
 
       <Card className="mb-6 p-5">
@@ -67,25 +73,28 @@ export default function TournamentView({ id }: { id: string }) {
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={d.status} />
               {t.kind && (
-                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted">{KIND_LABELS[t.kind]}</span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted">{tr(`kind.${t.kind}`)}</span>
               )}
-              <span className="text-sm text-muted">{FORMAT_LABELS[t.format]}</span>
+              <span className="text-sm text-muted">{tr(`format.${t.format}`)}</span>
             </div>
             <h1 className="text-2xl font-bold sm:text-3xl">{t.name}</h1>
             <p className="mt-1 text-muted">
-              {formatDate(t.date)}
+              {date(t.date)}
               {t.time && `, ${t.time}`} · {t.venue}
             </p>
             <p className="mt-1 text-sm text-muted">
-              {t.playerIds.length} {pluralRu(t.playerIds.length, "участник", "участника", "участников")} · матчи до{" "}
-              {setsToWin(t.bestOf)} побед
-              {t.format === "groups-playoff" &&
-                ` · ${t.groupCount ?? 2} ${pluralRu(t.groupCount ?? 2, "группа", "группы", "групп")}, из каждой выходят ${t.advancePerGroup ?? 2}`}
+              {plural(t.playerIds.length, ["участник", "участника", "участников"], "катышуучу")} ·{" "}
+              {tr("t.matchesTo", { n: setsToWin(t.bestOf) })}
+              {isGroups &&
+                ` · ${tr("t.groupsInfo", {
+                  g: plural(t.groupCount ?? 2, ["группа", "группы", "групп"], "топ"),
+                  a: t.advancePerGroup ?? 2,
+                })}`}
             </p>
           </div>
           {champion ? (
             <div className="rounded-xl bg-accent-soft px-4 py-3 text-right">
-              <div className="text-xs uppercase tracking-wide text-accent">Победитель</div>
+              <div className="text-xs uppercase tracking-wide text-accent">{tr("t.winner")}</div>
               <div className="text-lg font-semibold">
                 <PlayerName id={champion.playerId} />
               </div>
@@ -93,7 +102,7 @@ export default function TournamentView({ id }: { id: string }) {
           ) : (
             <div className="min-w-48 text-right">
               <div className="text-sm text-muted">
-                Сыграно {d.playedCount} из {total}
+                {tr("card.played", { a: d.playedCount, b: total })}
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-foreground/10">
                 <div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
@@ -104,12 +113,12 @@ export default function TournamentView({ id }: { id: string }) {
 
         <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
           {[
-            ["Начало", t.time ?? "—"],
-            ["Разминка", t.warmupTime ? `с ${t.warmupTime}` : "—"],
-            ["Взнос", t.fee !== undefined ? formatMoney(t.fee) : "—"],
-            ["Участники", `${t.playerIds.length}${t.playerLimit ? ` / ${t.playerLimit}` : ""}`],
-            ["Рейтинг", t.maxRating ? `до ${t.maxRating}` : "открытый"],
-            ["Контакт", t.contactPhone ?? "—"],
+            [tr("info.start"), t.time ?? "—"],
+            [tr("info.warmup"), t.warmupTime ? tr("info.warmupFrom", { t: t.warmupTime }) : "—"],
+            [tr("info.fee"), t.fee !== undefined ? formatMoney(t.fee) : "—"],
+            [tr("info.players"), `${t.playerIds.length}${t.playerLimit ? ` / ${t.playerLimit}` : ""}`],
+            [tr("info.rating"), t.maxRating ? tr("info.ratingUpTo", { n: t.maxRating }) : tr("info.open")],
+            [tr("info.contact"), t.contactPhone ?? "—"],
           ].map(([label, value]) => (
             <div key={label}>
               <dt className="text-xs text-muted">{label}</dt>
@@ -117,6 +126,23 @@ export default function TournamentView({ id }: { id: string }) {
             </div>
           ))}
         </dl>
+
+        {(locked || editing) && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-sm text-muted">{editing ? tr("t.editing") : tr("sd.readOnly")}</p>
+            <button
+              onClick={() => {
+                if (editing) setUnlocked(id, false);
+                else if (window.confirm(tr("t.unlockConfirm"))) setUnlocked(id, true);
+              }}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                editing ? "bg-accent text-white hover:opacity-90" : "border border-border hover:border-accent"
+              }`}
+            >
+              {editing ? tr("t.lock") : tr("t.unlock")}
+            </button>
+          </div>
+        )}
       </Card>
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
@@ -141,21 +167,21 @@ export default function TournamentView({ id }: { id: string }) {
         <div className="space-y-6">
           {t.format === "groups-rr-finals" && !d.groups.some((g) => g.kind === "final") && (
             <p className="rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
-              Финалы по кругу сформируются, когда будут сыграны все матчи в группах.
+              {tr("t.rrFinalsPending")}
             </p>
           )}
           {d.groups.map((g) => (
             <section key={g.name}>
               <SectionTitle>
-                {g.name}
+                {tg(g.name)}
                 {g.kind === "final" && (
                   <span className="ml-2 text-sm font-normal text-muted">
-                    · места {g.placeOffset + 1}–{g.placeOffset + g.playerIds.length}, встречи из группы засчитаны
+                    {tr("t.finalPlaces", { a: g.placeOffset + 1, b: g.placeOffset + g.playerIds.length })}
                   </span>
                 )}
               </SectionTitle>
               <Card className="p-4">
-                <div className="mb-2 text-sm font-medium text-muted">Шахматка · нажмите на клетку, чтобы ввести счёт</div>
+                <div className="mb-2 text-sm font-medium text-muted">{tr("t.crossHint")}</div>
                 <CrossTable
                   standings={g.standings}
                   matches={g.matches}
@@ -172,7 +198,7 @@ export default function TournamentView({ id }: { id: string }) {
         <div>
           {isGroups && !groupsDone && (
             <p className="mb-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
-              Сетка заполнится, когда будут сыграны все матчи в группах.
+              {tr("t.bracketPending")}
             </p>
           )}
           <Card className="p-4">
@@ -184,9 +210,9 @@ export default function TournamentView({ id }: { id: string }) {
       {activeTab === "matches" && (
         <Card>
           {d.matches.length ? (
-            <MatchList matches={d.matches} onMatchClick={openMatch} />
+            <MatchList matches={d.matches} onMatchClick={openMatch} readOnly={locked} />
           ) : (
-            <div className="p-6 text-muted">Матчей пока нет</div>
+            <div className="p-6 text-muted">{tr("t.noMatches")}</div>
           )}
         </Card>
       )}
@@ -203,16 +229,16 @@ export default function TournamentView({ id }: { id: string }) {
                     <PlayerName id={pid} />
                   </span>
                   <span className="tabular-nums text-muted">{rating.ratings[pid]}</span>
-                  {place && <span className="w-14 text-right font-semibold">{place} место</span>}
+                  {place && <span className="w-16 text-right font-semibold">{tr("t.place", { p: place })}</span>}
                 </li>
               );
             })}
           </ul>
-          <p className="border-t border-border px-4 py-3 text-xs text-muted">Номер — позиция в посеве.</p>
+          <p className="border-t border-border px-4 py-3 text-xs text-muted">{tr("t.seedNote")}</p>
         </Card>
       )}
 
-      {editing && <ScoreDialog match={editing} bestOf={t.bestOf} onClose={() => setEditing(null)} />}
+      {editingMatch && <ScoreDialog match={editingMatch} bestOf={t.bestOf} onClose={() => setEditingMatch(null)} readOnly={locked} />}
     </div>
   );
 }

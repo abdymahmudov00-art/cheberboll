@@ -1,9 +1,13 @@
+"use client";
+
 import type { RatingPoint } from "@/lib/rating";
+import { useI18n } from "@/hooks/useI18n";
 
 /** Простой график рейтинга на SVG, без сторонних библиотек */
 export default function RatingChart({ points }: { points: RatingPoint[] }) {
+  const { t } = useI18n();
   if (points.length < 2) {
-    return <div className="py-10 text-center text-sm text-muted">График появится после первого матча</div>;
+    return <div className="py-10 text-center text-sm text-muted">{t("chart.empty")}</div>;
   }
   const W = 600;
   const H = 180;
@@ -19,7 +23,7 @@ export default function RatingChart({ points }: { points: RatingPoint[] }) {
   const last = points[points.length - 1];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="График изменения рейтинга">
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={t("chart.aria")}>
       <line x1={PAD} x2={W - PAD} y1={y(max)} y2={y(max)} stroke="var(--border)" strokeDasharray="4 4" />
       <line x1={PAD} x2={W - PAD} y1={y(min)} y2={y(min)} stroke="var(--border)" strokeDasharray="4 4" />
       <text x={W - PAD} y={y(max) - 6} textAnchor="end" fontSize="11" fill="var(--muted)">

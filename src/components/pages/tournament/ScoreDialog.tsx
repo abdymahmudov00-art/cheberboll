@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import type { Match, MatchResult, SetScore } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { countSets, quickScores, resultError, setsToWin } from "@/lib/scoring";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   match: Match;
   bestOf: number;
   onClose: () => void;
+  /** Только просмотр: турнир завершён и не открыт для правок */
+  readOnly?: boolean;
 }
 
 type Row = [string, string];
@@ -21,8 +24,9 @@ function initialQuick(r: MatchResult | null): Quick {
   return r;
 }
 
-export default function ScoreDialog({ match, bestOf, onClose }: Props) {
+export default function ScoreDialog({ match, bestOf, onClose, readOnly = false }: Props) {
   const { playerById, setMatchResult, live, cancelMatch } = useData();
+  const { t, tg } = useI18n();
   const maxSets = bestOf;
   const [rows, setRows] = useState<Row[]>(() => {
     const filled: Row[] = (match.sets ?? []).map(([a, b]) => [String(a), String(b)]);
@@ -43,6 +47,55 @@ export default function ScoreDialog({ match, bestOf, onClose }: Props) {
 
   const p1 = match.p1 ? playerById[match.p1]?.name : "—";
   const p2 = match.p2 ? playerById[match.p2]?.name : "—";
+
+  if (readOnly) {
+    const final = match.walkover
+      ? match.winner === match.p1 ? "W:L" : "L:W"
+      : match.score ? `${match.score[0]}:${match.score[1]}` : "–:–";
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("sd.aria")}
+          className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-sm text-muted">
+            {match.number ? `${t("sd.match", { n: match.number })} · ` : ""}
+            {tg(match.label)}
+          </div>
+          <div className="mb-4 mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
+            <div className={match.winner === match.p1 ? "font-semibold" : "text-muted"}>{p1}</div>
+            <div className="min-w-16 text-3xl font-bold tabular-nums">{final}</div>
+            <div className={match.winner === match.p2 ? "font-semibold" : "text-muted"}>{p2}</div>
+          </div>
+          {match.walkover ? (
+            <p className="text-center text-sm text-muted">{t("sd.walkover")}</p>
+          ) : match.sets?.length ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              {match.sets.map(([a, b], i) => (
+                <div key={i} className="rounded-lg bg-foreground/5 px-3 py-1.5 text-center">
+                  <div className="text-[10px] text-muted">{t("sd.set", { n: i + 1 })}</div>
+                  <div className="font-semibold tabular-nums">
+                    {a}:{b}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-muted">{t("sd.noSets")}</p>
+          )}
+          <p className="mt-4 rounded-lg bg-foreground/5 px-3 py-2 text-center text-xs text-muted">{t("sd.readOnly")}</p>
+          <div className="mt-4 flex justify-end">
+            <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-foreground/5">
+              {t("sd.close")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const parsed: SetScore[] = rows
     .filter(([a, b]) => a.trim() !== "" || b.trim() !== "")
@@ -73,12 +126,12 @@ export default function ScoreDialog({ match, bestOf, onClose }: Props) {
     if (hasSets) result = { type: "sets", sets: parsed };
     else if (quick) result = quick;
     else {
-      setError("Выберите счёт кнопкой или введите партии");
+      setError(t("sd.pick"));
       return;
     }
     const err = resultError(result, bestOf);
     if (err) {
-      setError(err);
+      setError(tg(err));
       return;
     }
     setMatchResult(match.id, result);
@@ -116,16 +169,16 @@ export default function ScoreDialog({ match, bestOf, onClose }: Props) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Ввод счёта матча"
+        aria-label={t("sd.aria")}
         className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between gap-2 text-sm text-muted">
           <span>
-            {match.number ? `Матч ${match.number} · ` : ""}
-            {match.label}
+            {match.number ? `${t("sd.match", { n: match.number })} · ` : ""}
+            {tg(match.label)}
           </span>
-          {table && <span className="rounded-full bg-win/15 px-2 py-0.5 text-xs font-medium text-win">Стол {table}</span>}
+          {table && <span className="rounded-full bg-win/15 px-2 py-0.5 text-xs font-medium text-win">{t("sd.table", { n: table })}</span>}
         </div>
 
         <div className="mb-4 mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
@@ -144,10 +197,10 @@ export default function ScoreDialog({ match, bestOf, onClose }: Props) {
             {quickBtn({ type: "walkover", winner: 2 }, "L:W")}
           </div>
         </div>
-        <p className="mt-2 text-xs text-muted">W:L — неявка соперника (техническая победа, рейтинг не меняется).</p>
+        <p className="mt-2 text-xs text-muted">{t("sd.wlHint")}</p>
 
         <details className="mt-4 rounded-lg border border-border px-3 py-2" open={hasSets}>
-          <summary className="cursor-pointer text-sm font-medium">Счёт по партиям (необязательно)</summary>
+          <summary className="cursor-pointer text-sm font-medium">{t("sd.setsTitle")}</summary>
           <div className="mt-3 space-y-2">
             {rows.map(([a, b], i) => (
               <div key={i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -156,20 +209,20 @@ export default function ScoreDialog({ match, bestOf, onClose }: Props) {
                   className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-center tabular-nums outline-none focus:border-accent"
                   value={a}
                   onChange={(e) => updateCell(i, 0, e.target.value.replace(/\D/g, ""))}
-                  aria-label={`Партия ${i + 1}, ${p1}`}
+                  aria-label={`${t("sd.set", { n: i + 1 })}, ${p1}`}
                 />
-                <span className="w-16 text-center text-xs text-muted">партия {i + 1}</span>
+                <span className="w-16 text-center text-xs text-muted">{t("sd.set", { n: i + 1 })}</span>
                 <input
                   inputMode="numeric"
                   className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-center tabular-nums outline-none focus:border-accent"
                   value={b}
                   onChange={(e) => updateCell(i, 1, e.target.value.replace(/\D/g, ""))}
-                  aria-label={`Партия ${i + 1}, ${p2}`}
+                  aria-label={`${t("sd.set", { n: i + 1 })}, ${p2}`}
                 />
               </div>
             ))}
             <p className="text-xs text-muted">
-              Матч до {setsToWin(bestOf)} побед. Партия до 11, при 10:10 — до перевеса в 2 очка.
+              {t("sd.rules", { n: setsToWin(bestOf) })}
             </p>
           </div>
         </details>
@@ -179,19 +232,19 @@ export default function ScoreDialog({ match, bestOf, onClose }: Props) {
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           {match.winner && (
             <button onClick={clear} className="mr-auto rounded-lg px-3 py-2 text-sm text-loss hover:bg-loss/10">
-              Удалить результат
+              {t("sd.delete")}
             </button>
           )}
           {!match.winner && table && (
             <button onClick={cancelGame} className="mr-auto rounded-lg px-3 py-2 text-sm text-loss hover:bg-loss/10">
-              Отменить игру
+              {t("sd.cancelGame")}
             </button>
           )}
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-foreground/5">
-            Отмена
+            {t("common.cancel")}
           </button>
           <button onClick={save} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-            Сохранить
+            {t("common.save")}
           </button>
         </div>
       </div>

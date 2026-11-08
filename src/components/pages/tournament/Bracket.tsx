@@ -2,7 +2,7 @@
 
 import type { BracketData, Match } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
-import { BRACKET_KIND_LABELS } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   bracket: BracketData;
@@ -10,18 +10,19 @@ interface Props {
 }
 
 export default function Bracket({ bracket, onMatchClick }: Props) {
+  const { t, tg } = useI18n();
   return (
     <div className="space-y-6">
-      <div className="text-xs text-muted">{BRACKET_KIND_LABELS[bracket.kind]}</div>
+      <div className="text-xs text-muted">{t(`bracketKind.${bracket.kind}`)}</div>
       {bracket.sections.map((section) => (
         <section key={section.title}>
-          <div className="mb-3 text-sm font-semibold">{section.title}</div>
+          <div className="mb-3 text-sm font-semibold">{tg(section.title)}</div>
           <div className="overflow-x-auto pb-2">
             <div className="flex min-w-max gap-6">
               {section.columns.map((col) => (
                 <div key={col.title} className="flex w-72 flex-col">
                   <div className="mb-3 inline-block self-start rounded-md bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-accent">
-                    {col.title}
+                    {tg(col.title)}
                   </div>
                   <div className="flex flex-1 flex-col justify-around gap-3">
                     {col.matches.map((m) => (
@@ -40,6 +41,7 @@ export default function Bracket({ bracket, onMatchClick }: Props) {
 
 function BracketMatch({ match, onClick }: { match: Match; onClick: () => void }) {
   const { playerById, rating, live } = useData();
+  const { t } = useI18n();
   const playable = Boolean(match.p1 && match.p2) && !match.bye;
   const table = live[match.id]?.table;
 
@@ -80,10 +82,10 @@ function BracketMatch({ match, onClick }: { match: Match; onClick: () => void })
         className={`flex w-9 shrink-0 flex-col items-center justify-center border-l border-border text-xs font-semibold ${
           table && !match.winner ? "bg-win text-white" : "bg-foreground/5 text-muted"
         }`}
-        title={table ? `Стол ${table}` : `Матч ${match.number}`}
+        title={table ? t("sd.table", { n: table }) : t("sd.match", { n: match.number ?? "" })}
       >
         {match.number}
-        {table && !match.winner && <span className="text-[9px] font-normal">ст {table}</span>}
+        {table && !match.winner && <span className="text-[9px] font-normal">{t("br.tableShort", { n: table })}</span>}
       </div>
     </button>
   );

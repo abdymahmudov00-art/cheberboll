@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { TournamentStatus } from "@/types";
-import { STATUS_LABELS } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 
 export function PageTitle({ title, subtitle, action }: { title: string; subtitle?: ReactNode; action?: ReactNode }) {
   return (
@@ -35,10 +37,11 @@ const STATUS_STYLES: Record<TournamentStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: TournamentStatus }) {
+  const { t } = useI18n();
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[status]}`}>
       {status === "live" && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />}
-      {STATUS_LABELS[status]}
+      {t(`status.${status}`)}
     </span>
   );
 }
@@ -69,5 +72,6 @@ export function EmptyState({ children }: { children: ReactNode }) {
 }
 
 export function PageLoading() {
-  return <div className="py-16 text-center text-muted">Загрузка…</div>;
+  const { t } = useI18n();
+  return <div className="py-16 text-center text-muted">{t("loading")}</div>;
 }

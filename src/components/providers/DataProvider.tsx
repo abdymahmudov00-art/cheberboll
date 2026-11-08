@@ -18,6 +18,9 @@ interface DataContextValue {
   rating: RatingResult;
   /** Матчи за столами: id матча → стол и время вызова */
   live: Record<string, LiveMatch>;
+  /** Завершённые турниры, открытые для правок */
+  unlocked: Record<string, boolean>;
+  setUnlocked: (tournamentId: string, value: boolean) => void;
   setMatchResult: (matchId: string, result: MatchResult | null) => void;
   startMatch: (matchId: string, table: number) => void;
   cancelMatch: (matchId: string) => void;
@@ -51,6 +54,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       data,
       rating: computeRatings(players, tournaments, data),
       live: demo.live,
+      unlocked: demo.unlocked ?? {},
+      setUnlocked: demoStore.setUnlocked,
       setMatchResult: demoStore.setResult,
       startMatch: demoStore.startMatch,
       cancelMatch: demoStore.cancelMatch,

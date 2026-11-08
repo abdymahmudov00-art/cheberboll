@@ -5,15 +5,8 @@ import { useRouter } from "next/navigation";
 import type { BracketKind, Format, TournamentKind } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, PageTitle } from "@/components/ui";
-import {
-  BRACKET_FORMATS,
-  BRACKET_KIND_LABELS,
-  FORMAT_DESCRIPTIONS,
-  FORMAT_LABELS,
-  GROUP_FORMATS,
-  KINDS,
-  KIND_LABELS,
-} from "@/lib/labels";
+import { BRACKET_FORMATS, GROUP_FORMATS, KINDS } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 import AddPlayerDialog from "@/components/ui/AddPlayerDialog";
 
 const FORMATS: Format[] = [
@@ -41,6 +34,7 @@ const inputCls =
 export default function CreateTournamentForm() {
   const router = useRouter();
   const { players, rating, createTournament } = useData();
+  const { t } = useI18n();
 
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -83,16 +77,16 @@ export default function CreateTournamentForm() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return setError("Введите название турнира");
-    if (!date) return setError("Выберите дату");
-    if (!time) return setError("Укажите время начала");
+    if (!name.trim()) return setError(t("cf.errName"));
+    if (!date) return setError(t("cf.errDate"));
+    if (!time) return setError(t("cf.errTime"));
     if (limit !== undefined && selected.size > limit) {
-      return setError(`Выбрано ${selected.size} участников, а лимит — ${limit}`);
+      return setError(t("cf.errLimit", { n: selected.size, l: limit }));
     }
     const tooStrong = [...selected].filter((id) => !allowed(id));
-    if (tooStrong.length) return setError(`У ${tooStrong.length} выбранных игроков рейтинг выше ${ratingCap}`);
-    if (selected.size < minPlayers) return setError(`Для этого формата нужно минимум ${minPlayers} участников`);
-    if (isGroups && advance * groupCount < 2) return setError("Из групп должно выйти минимум 2 игрока");
+    if (tooStrong.length) return setError(t("cf.errStrong", { n: tooStrong.length, r: ratingCap ?? "" }));
+    if (selected.size < minPlayers) return setError(t("cf.errMin", { n: minPlayers }));
+    if (isGroups && advance * groupCount < 2) return setError(t("cf.errAdv"));
 
     // Посев по текущему рейтингу: сильнейший первым
     const playerIds = sortedPlayers.filter((p) => selected.has(p.id)).map((p) => p.id);
@@ -122,16 +116,16 @@ export default function CreateTournamentForm() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageTitle title="Новый турнир" subtitle="Сетка и таблицы построятся автоматически по рейтингу участников" />
+      <PageTitle title={t("cf.title")} subtitle={t("cf.subtitle")} />
 
       <form onSubmit={submit} className="space-y-6">
         <Card className="space-y-4 p-5">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium">Название</span>
-            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Кубок декабря" />
+            <span className="mb-1 block text-sm font-medium">{t("cf.name")}</span>
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("cf.namePh")} />
           </label>
           <div>
-            <span className="mb-2 block text-sm font-medium">Тип турнира</span>
+            <span className="mb-2 block text-sm font-medium">{t("cf.kind")}</span>
             <div className="flex flex-wrap gap-2">
               {KINDS.map((k) => (
                 <button
@@ -142,27 +136,27 @@ export default function CreateTournamentForm() {
                     kind === k ? "border-accent bg-accent-soft text-accent" : "border-border hover:border-foreground/30"
                   }`}
                 >
-                  {KIND_LABELS[k]}
+                  {t(`kind.${k}`)}
                 </button>
               ))}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Дата</span>
+              <span className="mb-1 block text-sm font-medium">{t("cf.date")}</span>
               <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Начало турнира</span>
+              <span className="mb-1 block text-sm font-medium">{t("cf.start")}</span>
               <input type="time" className={inputCls} value={time} onChange={(e) => setTime(e.target.value)} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Начало разминки</span>
+              <span className="mb-1 block text-sm font-medium">{t("cf.warmup")}</span>
               <input type="time" className={inputCls} value={warmupTime} onChange={(e) => setWarmupTime(e.target.value)} />
             </label>
           </div>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium">Место проведения</span>
+            <span className="mb-1 block text-sm font-medium">{t("cf.venue")}</span>
             <input className={inputCls} value={venue} onChange={(e) => setVenue(e.target.value)} />
           </label>
         </Card>
@@ -170,41 +164,41 @@ export default function CreateTournamentForm() {
         <Card className="space-y-4 p-5">
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Взнос, сом</span>
-              <input inputMode="numeric" className={inputCls} value={fee} onChange={(e) => setFee(e.target.value.replace(/\D/g, ""))} placeholder="Например, 500" />
+              <span className="mb-1 block text-sm font-medium">{t("cf.fee")}</span>
+              <input inputMode="numeric" className={inputCls} value={fee} onChange={(e) => setFee(e.target.value.replace(/\D/g, ""))} placeholder={t("cf.feePh")} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Лимит участников</span>
-              <input inputMode="numeric" className={inputCls} value={playerLimit} onChange={(e) => setPlayerLimit(e.target.value.replace(/\D/g, ""))} placeholder="Без лимита" />
+              <span className="mb-1 block text-sm font-medium">{t("cf.limit")}</span>
+              <input inputMode="numeric" className={inputCls} value={playerLimit} onChange={(e) => setPlayerLimit(e.target.value.replace(/\D/g, ""))} placeholder={t("cf.noLimit")} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Рейтинг до</span>
-              <input inputMode="numeric" className={inputCls} value={maxRating} onChange={(e) => setMaxRating(e.target.value.replace(/\D/g, ""))} placeholder="Открытый" />
+              <span className="mb-1 block text-sm font-medium">{t("cf.maxRating")}</span>
+              <input inputMode="numeric" className={inputCls} value={maxRating} onChange={(e) => setMaxRating(e.target.value.replace(/\D/g, ""))} placeholder={t("cf.open")} />
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Контактное лицо</span>
-              <input className={inputCls} value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Имя организатора" />
+              <span className="mb-1 block text-sm font-medium">{t("cf.contact")}</span>
+              <input className={inputCls} value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder={t("cf.contactPh")} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Телефон организатора</span>
+              <span className="mb-1 block text-sm font-medium">{t("cf.phone")}</span>
               <input type="tel" className={inputCls} value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
             </label>
           </div>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium">Призовой фонд</span>
-            <textarea rows={3} className={inputCls} value={prizeFund} onChange={(e) => setPrizeFund(e.target.value)} placeholder={"1 место — 3 000 сом\n2 место — 2 000 сом"} />
+            <span className="mb-1 block text-sm font-medium">{t("cf.prize")}</span>
+            <textarea rows={3} className={inputCls} value={prizeFund} onChange={(e) => setPrizeFund(e.target.value)} placeholder={t("cf.prizePh")} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium">Описание</span>
-            <textarea rows={4} className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Регламент, форма одежды, что взять с собой" />
+            <span className="mb-1 block text-sm font-medium">{t("cf.desc")}</span>
+            <textarea rows={4} className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("cf.descPh")} />
           </label>
         </Card>
 
         <Card className="space-y-4 p-5">
           <div>
-            <span className="mb-2 block text-sm font-medium">Формат</span>
+            <span className="mb-2 block text-sm font-medium">{t("cf.format")}</span>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {FORMATS.map((f) => (
                 <button
@@ -215,8 +209,8 @@ export default function CreateTournamentForm() {
                     format === f ? "border-accent bg-accent-soft" : "border-border hover:border-foreground/30"
                   }`}
                 >
-                  <div className="font-medium">{FORMAT_LABELS[f]}</div>
-                  <div className="mt-1 text-xs text-muted">{FORMAT_DESCRIPTIONS[f]}</div>
+                  <div className="font-medium">{t(`format.${f}`)}</div>
+                  <div className="mt-1 text-xs text-muted">{t(`formatDesc.${f}`)}</div>
                 </button>
               ))}
             </div>
@@ -224,20 +218,20 @@ export default function CreateTournamentForm() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Матч до</span>
+              <span className="mb-1 block text-sm font-medium">{t("cf.bestOf")}</span>
               <select className={inputCls} value={bestOf} onChange={(e) => setBestOf(Number(e.target.value) as 3 | 5)}>
-                <option value={3}>2 побед (из 3 партий)</option>
-                <option value={5}>3 побед (из 5 партий)</option>
+                <option value={3}>{t("cf.bo3")}</option>
+                <option value={5}>{t("cf.bo5")}</option>
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">Столов в зале</span>
+              <span className="mb-1 block text-sm font-medium">{t("cf.tables")}</span>
               <input inputMode="numeric" className={inputCls} value={tables} onChange={(e) => setTables(e.target.value.replace(/\D/g, "").slice(0, 2))} />
             </label>
             {isGroups && (
               <>
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium">Групп</span>
+                  <span className="mb-1 block text-sm font-medium">{t("cf.groups")}</span>
                   <select className={inputCls} value={groupCount} onChange={(e) => setGroupCount(Number(e.target.value))}>
                     {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                       <option key={n} value={n}>{n}</option>
@@ -246,7 +240,7 @@ export default function CreateTournamentForm() {
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium">
-                    {format === "groups-playoff" ? "Выходят в сетку из группы" : "В финал 1 из группы"}
+                    {format === "groups-playoff" ? t("cf.advBracket") : t("cf.advFinal")}
                   </span>
                   <select className={inputCls} value={advance} onChange={(e) => setAdvance(Number(e.target.value))}>
                     {[1, 2, 3].map((n) => (
@@ -258,10 +252,10 @@ export default function CreateTournamentForm() {
             )}
             {BRACKET_FORMATS.includes(format) && (
               <label className="block">
-                <span className="mb-1 block text-sm font-medium">Сетка</span>
+                <span className="mb-1 block text-sm font-medium">{t("cf.bracket")}</span>
                 <select className={inputCls} value={bracketKind} onChange={(e) => setBracketKind(e.target.value as BracketKind)}>
-                  {(Object.keys(BRACKET_KIND_LABELS) as BracketKind[]).map((k) => (
-                    <option key={k} value={k}>{BRACKET_KIND_LABELS[k]}</option>
+                  {(["single", "p11", "p12"] as BracketKind[]).map((k) => (
+                    <option key={k} value={k}>{t(`bracketKind.${k}`)}</option>
                   ))}
                 </select>
               </label>
@@ -272,15 +266,16 @@ export default function CreateTournamentForm() {
         <Card className="p-5">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-medium">
-              Участники{" "}
+              {t("cf.players")}{" "}
               <span className="text-muted">
-                · выбрано {selected.size}
-                {limit !== undefined ? ` из ${limit}` : ""}, минимум {minPlayers}
+                {t("cf.selected", { n: selected.size })}
+                {limit !== undefined ? t("cf.ofLimit", { n: limit }) : ""}
+                {t("cf.min", { n: minPlayers })}
               </span>
             </span>
             <div className="flex gap-4">
             <button type="button" className="text-sm text-accent hover:underline" onClick={() => setAddingPlayer(true)}>
-              + Новый игрок
+              {t("cf.newPlayer")}
             </button>
             <button
               type="button"
@@ -293,7 +288,7 @@ export default function CreateTournamentForm() {
                 )
               }
             >
-              {selected.size > 0 ? "Снять все" : "Выбрать всех"}
+              {selected.size > 0 ? t("cf.clear") : t("cf.selectAll")}
             </button>
             </div>
           </div>
@@ -303,7 +298,7 @@ export default function CreateTournamentForm() {
               return (
                 <label
                   key={p.id}
-                  title={ok ? undefined : `Рейтинг выше ${ratingCap}`}
+                  title={ok ? undefined : t("cf.ratingAbove", { n: ratingCap ?? "" })}
                   className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition ${
                     selected.has(p.id) ? "border-accent bg-accent-soft" : "border-border"
                   } ${ok ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}
@@ -327,10 +322,10 @@ export default function CreateTournamentForm() {
 
         <div className="flex justify-end gap-3">
           <button type="button" onClick={() => router.back()} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-foreground/5">
-            Отмена
+            {t("common.cancel")}
           </button>
           <button type="submit" className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:opacity-90">
-            Создать турнир
+            {t("cf.submit")}
           </button>
         </div>
       </form>

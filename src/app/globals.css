@@ -26,8 +26,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Тёмная тема: по настройке системы (если пользователь не выбрал светлую)
+ * или принудительно, когда выбрана тёмная. Выбор хранится в data-theme на <html>.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0e1013;
     --foreground: #eceef1;
     --card: #171a1f;
@@ -37,7 +41,25 @@
     --accent-soft: #2b1a10;
     --win: #4ade80;
     --loss: #f87171;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --background: #0e1013;
+  --foreground: #eceef1;
+  --card: #171a1f;
+  --border: #2a2f37;
+  --muted: #9aa3af;
+  --accent: #ff7a33;
+  --accent-soft: #2b1a10;
+  --win: #4ade80;
+  --loss: #f87171;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {

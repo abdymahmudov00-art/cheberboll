@@ -20,6 +20,8 @@ export interface DemoState {
   results: Record<string, MatchResult | null>;
   /** Матчи, которые сейчас играются: id матча → стол */
   live: Record<string, LiveMatch>;
+  /** Завершённые турниры, открытые организатором для правок */
+  unlocked?: Record<string, boolean>;
 }
 
 // Номер версии меняется, когда старые сохранённые данные больше не подходят (сброс у всех)
@@ -87,6 +89,13 @@ export const demoStore = {
   /** Отменить игру: матч возвращается в ожидание */
   cancelMatch(matchId: string) {
     update({ ...state, live: withoutLive(matchId) });
+  },
+  /** Открыть завершённый турнир для правок или снова закрыть */
+  setUnlocked(tournamentId: string, value: boolean) {
+    const unlocked = { ...(state.unlocked ?? {}) };
+    if (value) unlocked[tournamentId] = true;
+    else delete unlocked[tournamentId];
+    update({ ...state, unlocked });
   },
   addTournament(t: Tournament) {
     update({ ...state, createdTournaments: [...state.createdTournaments, t] });

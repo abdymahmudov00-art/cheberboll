@@ -5,17 +5,19 @@ import { useData } from "@/components/providers/DataProvider";
 import { Card, Delta, EmptyState, SectionTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
 import { formatSets } from "@/lib/scoring";
-import { formatDate, scoreFor } from "@/lib/labels";
+import { scoreFor } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 import RatingChart from "./RatingChart";
 
 export default function PlayerView({ id }: { id: string }) {
   const { playerById, players, rating, tournaments, data } = useData();
   const player = playerById[id];
+  const { t, tg, date } = useI18n();
 
   if (!player) {
     return (
       <EmptyState>
-        Игрок не найден. <Link href="/ratings" className="text-accent hover:underline">К рейтингу</Link>
+        {t("pv.notFound")} <Link href="/ratings" className="text-accent hover:underline">{t("pv.toRating")}</Link>
       </EmptyState>
     );
   }
@@ -36,16 +38,16 @@ export default function PlayerView({ id }: { id: string }) {
     .sort((a, b) => b.t.date.localeCompare(a.t.date));
 
   const stats = [
-    { label: "Рейтинг", value: rating.ratings[id] },
-    { label: "Место", value: `${place} из ${players.length}` },
-    { label: "Матчи", value: matches.length },
-    { label: "Победы", value: matches.length ? `${won} (${Math.round((won / matches.length) * 100)}%)` : "—" },
+    { label: t("pv.rating"), value: rating.ratings[id] },
+    { label: t("pv.place"), value: t("pv.placeOf", { a: place, b: players.length }) },
+    { label: t("pv.matches"), value: matches.length },
+    { label: t("pv.wins"), value: matches.length ? `${won} (${Math.round((won / matches.length) * 100)}%)` : "—" },
   ];
 
   return (
     <div className="space-y-6">
       <Link href="/ratings" className="inline-block text-sm text-muted hover:text-accent">
-        ← Рейтинг
+        {t("pv.back")}
       </Link>
 
       <Card className="p-5">
@@ -57,12 +59,12 @@ export default function PlayerView({ id }: { id: string }) {
             <h1 className="text-2xl font-bold">{player.name}</h1>
             <p className="text-muted">
               {player.city}
-              {player.birthYear ? `, ${player.birthYear} г.р.` : ""}
-              {player.hand ? ` · ${player.hand === "right" ? "правая" : "левая"} рука` : ""}
+              {player.birthYear ? t("pv.born", { y: player.birthYear }) : ""}
+              {player.hand ? t(player.hand === "right" ? "pv.handRight" : "pv.handLeft") : ""}
             </p>
           </div>
           <div className="text-right text-sm text-muted">
-            С начала сезона: <Delta value={diff} />
+            {t("pv.sinceStart")} <Delta value={diff} />
           </div>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -76,7 +78,7 @@ export default function PlayerView({ id }: { id: string }) {
       </Card>
 
       <section>
-        <SectionTitle>Рейтинг</SectionTitle>
+        <SectionTitle>{t("pv.rating")}</SectionTitle>
         <Card className="p-4">
           <RatingChart points={rating.history[id] ?? []} />
         </Card>
@@ -84,16 +86,16 @@ export default function PlayerView({ id }: { id: string }) {
 
       {results.length > 0 && (
         <section>
-          <SectionTitle>Итоги турниров</SectionTitle>
+          <SectionTitle>{t("pv.results")}</SectionTitle>
           <Card>
             <ul className="divide-y divide-border">
-              {results.map(({ t, place: p }) => (
-                <li key={t.id} className="flex items-center gap-4 px-4 py-3 text-sm">
-                  <Link href={`/tournaments/${t.id}`} className="flex-1 hover:text-accent">
-                    {t.name}
+              {results.map(({ t: tour, place: p }) => (
+                <li key={tour.id} className="flex items-center gap-4 px-4 py-3 text-sm">
+                  <Link href={`/tournaments/${tour.id}`} className="flex-1 hover:text-accent">
+                    {tour.name}
                   </Link>
-                  <span className="text-muted">{formatDate(t.date)}</span>
-                  <span className={`w-16 text-right font-semibold ${p === "1" ? "text-accent" : ""}`}>{p} место</span>
+                  <span className="text-muted">{date(tour.date)}</span>
+                  <span className={`w-20 text-right font-semibold ${p === "1" ? "text-accent" : ""}`}>{t("t.place", { p })}</span>
                 </li>
               ))}
             </ul>
@@ -103,7 +105,7 @@ export default function PlayerView({ id }: { id: string }) {
 
       <section>
         <SectionTitle>
-          История матчей <span className="text-sm font-normal text-muted">· {won} побед, {lost} поражений</span>
+          {t("pv.history")} <span className="text-sm font-normal text-muted">{t("pv.wl", { w: won, l: lost })}</span>
         </SectionTitle>
         {matches.length ? (
           <Card>
@@ -119,12 +121,12 @@ export default function PlayerView({ id }: { id: string }) {
                         win ? "bg-win/15 text-win" : "bg-loss/15 text-loss"
                       }`}
                     >
-                      {win ? "В" : "П"}
+                      {win ? t("pv.W") : t("pv.L")}
                     </span>
                     <span className="min-w-40 flex-1">
                       vs <PlayerName id={opp} />
                       <span className="block text-xs text-muted">
-                        {tournament.name} · {m.label}
+                        {tournament.name} · {tg(m.label)}
                       </span>
                     </span>
                     <span className="hidden text-xs text-muted sm:inline">{m.sets && formatSets(m.sets)}</span>
@@ -140,7 +142,7 @@ export default function PlayerView({ id }: { id: string }) {
             </ul>
           </Card>
         ) : (
-          <EmptyState>Игрок ещё не сыграл ни одного матча</EmptyState>
+          <EmptyState>{t("pv.noMatches")}</EmptyState>
         )}
       </section>
     </div>

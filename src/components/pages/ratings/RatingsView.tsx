@@ -5,11 +5,13 @@ import { useData } from "@/components/providers/DataProvider";
 import { Card, Delta, PageTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
 import AddPlayerDialog from "@/components/ui/AddPlayerDialog";
+import { useI18n } from "@/hooks/useI18n";
 
 export default function RatingsView() {
   const { players, rating } = useData();
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+  const { t } = useI18n();
 
   const stats = new Map<string, { won: number; lost: number; last: number }>();
   for (const p of players) stats.set(p.id, { won: 0, lost: 0, last: 0 });
@@ -39,14 +41,14 @@ export default function RatingsView() {
   return (
     <div>
       <PageTitle
-        title="Рейтинг игроков"
-        subtitle="Пересчитывается после каждого сыгранного матча"
+        title={t("rv.title")}
+        subtitle={t("rv.subtitle")}
         action={
           <button
             onClick={() => setAdding(true)}
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            + Добавить игрока
+            {t("rv.add")}
           </button>
         }
       />
@@ -55,7 +57,7 @@ export default function RatingsView() {
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Поиск по имени или городу"
+        placeholder={t("rv.search")}
         className="mb-4 w-full max-w-sm rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
       />
 
@@ -65,12 +67,12 @@ export default function RatingsView() {
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                 <th className="w-12 py-2 pl-4">#</th>
-                <th className="py-2">Игрок</th>
-                <th className="py-2">Город</th>
-                <th className="py-2 text-center">Матчи</th>
-                <th className="py-2 text-center">Победы</th>
-                <th className="py-2 text-center" title="Изменение за последний турнир">±</th>
-                <th className="py-2 pr-4 text-right">Рейтинг</th>
+                <th className="py-2">{t("rv.player")}</th>
+                <th className="py-2">{t("rv.city")}</th>
+                <th className="py-2 text-center">{t("rv.matches")}</th>
+                <th className="py-2 text-center">{t("rv.wins")}</th>
+                <th className="py-2 text-center" title={t("rv.deltaTitle")}>±</th>
+                <th className="py-2 pr-4 text-right">{t("rv.rating")}</th>
               </tr>
             </thead>
             <tbody>
@@ -98,7 +100,7 @@ export default function RatingsView() {
         </div>
       </Card>
       <p className="mt-3 text-xs text-muted">
-        Рейтинг считается по системе Эло: за победу над более сильным соперником даётся больше очков.
+        {t("rv.note")}
       </p>
     </div>
   );

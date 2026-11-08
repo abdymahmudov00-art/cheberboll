@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Match, TournamentData } from "@/types";
 import { useData } from "@/components/providers/DataProvider";
 import { Card, SectionTitle } from "@/components/ui";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   data: TournamentData;
@@ -26,6 +27,7 @@ function useNow(): number {
  */
 export default function TableBoard({ data: d, onMatchClick }: Props) {
   const { playerById, live, startMatch } = useData();
+  const { t, tg } = useI18n();
   const now = useNow();
   const tableCount = d.tournament.tables ?? 4;
 
@@ -41,24 +43,24 @@ export default function TableBoard({ data: d, onMatchClick }: Props) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section>
-        <SectionTitle>Играется</SectionTitle>
+        <SectionTitle>{t("tb.playing")}</SectionTitle>
         <div className="grid gap-3 sm:grid-cols-2">
           {Array.from({ length: tableCount }, (_, i) => i + 1).map((n) => {
             const m = playing.find((x) => live[x.id].table === n);
             return (
               <Card key={n} className={`p-3 ${m ? "border-win" : ""}`}>
                 <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className={`font-semibold ${m ? "text-win" : "text-muted"}`}>Стол {n}</span>
-                  {m && <span className="tabular-nums text-muted">{minutes(m)} мин</span>}
+                  <span className={`font-semibold ${m ? "text-win" : "text-muted"}`}>{t("sd.table", { n })}</span>
+                  {m && <span className="tabular-nums text-muted">{t("tb.min", { n: minutes(m) })}</span>}
                 </div>
                 {m ? (
                   <button onClick={() => onMatchClick(m)} className="w-full text-left text-sm hover:text-accent">
                     <div className="truncate font-medium">{name(m.p1)}</div>
                     <div className="truncate font-medium">{name(m.p2)}</div>
-                    <div className="mt-1 truncate text-xs text-muted">{m.label}</div>
+                    <div className="mt-1 truncate text-xs text-muted">{tg(m.label)}</div>
                   </button>
                 ) : (
-                  <div className="py-3 text-center text-sm text-muted">Свободен</div>
+                  <div className="py-3 text-center text-sm text-muted">{t("tb.free")}</div>
                 )}
               </Card>
             );
@@ -68,11 +70,11 @@ export default function TableBoard({ data: d, onMatchClick }: Props) {
 
       <section>
         <SectionTitle>
-          В ожидании <span className="text-sm font-normal text-muted">· {waiting.length}</span>
+          {t("tb.waiting")} <span className="text-sm font-normal text-muted">· {waiting.length}</span>
         </SectionTitle>
         <Card>
           {waiting.length === 0 ? (
-            <p className="p-5 text-sm text-muted">Нет матчей, готовых к игре</p>
+            <p className="p-5 text-sm text-muted">{t("tb.none")}</p>
           ) : (
             <ul className="divide-y divide-border">
               {waiting.map((m) => {
@@ -86,17 +88,17 @@ export default function TableBoard({ data: d, onMatchClick }: Props) {
                       </div>
                       <div className="truncate text-xs text-muted">
                         {m.number ? `№${m.number} · ` : ""}
-                        {m.label}
-                        {busy && " · игрок сейчас за столом"}
+                        {tg(m.label)}
+                        {busy && t("tb.busy")}
                       </div>
                     </div>
                     <button
                       disabled={!canStart}
                       onClick={() => freeTable && startMatch(m.id, freeTable)}
                       className="shrink-0 rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-                      title={freeTable === undefined ? "Все столы заняты" : busy ? "Игрок занят" : `На стол ${freeTable}`}
+                      title={freeTable === undefined ? t("tb.allBusy") : busy ? t("tb.playerBusy") : t("tb.toTable", { n: freeTable })}
                     >
-                      {freeTable === undefined ? "Нет стола" : `На стол ${freeTable}`}
+                      {freeTable === undefined ? t("tb.noTable") : t("tb.toTable", { n: freeTable })}
                     </button>
                   </li>
                 );
@@ -105,7 +107,7 @@ export default function TableBoard({ data: d, onMatchClick }: Props) {
           )}
         </Card>
         <p className="mt-2 text-xs text-muted">
-          Красным — пары, где кто-то из игроков сейчас играет. Счёт вводится нажатием на стол.
+          {t("tb.hint")}
         </p>
       </section>
     </div>

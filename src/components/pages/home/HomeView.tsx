@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useData } from "@/components/providers/DataProvider";
 import { ButtonLink, Card, Delta, SectionTitle } from "@/components/ui";
 import { PlayerName } from "@/components/ui/PlayerName";
 import { matchScoreText } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 import TournamentCard from "@/components/pages/tournaments/TournamentCard";
 
 export default function HomeView() {
   const { tournaments, data, rating, players, resetDemo } = useData();
+  const { t, tg } = useI18n();
 
   const all = tournaments.map((t) => data[t.id]).filter(Boolean);
   const live = all.filter((d) => d.status === "live");
@@ -21,24 +24,34 @@ export default function HomeView() {
 
   return (
     <div className="space-y-10">
-      <section className="rounded-2xl border border-border bg-card p-6 sm:p-10">
+      <section className="flex items-center justify-between gap-8 rounded-2xl border border-border bg-card p-6 sm:p-10">
+        <div>
         <h1 className="max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">
-          Турниры по настольному теннису <span className="text-accent">без бумажных протоколов</span>
+          {t("home.hero1")} <span className="text-accent">{t("home.hero2")}</span>
         </h1>
         <p className="mt-3 max-w-xl text-muted">
-          Создавайте турниры, вводите счёт партий — таблицы, сетки и рейтинг игроков считаются сами.
+          {t("home.heroText")}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <ButtonLink href="/tournaments/new">Создать турнир</ButtonLink>
+          <ButtonLink href="/tournaments/new">{t("home.create")}</ButtonLink>
           <ButtonLink href="/tournaments" variant="ghost">
-            Смотреть турниры
+            {t("home.browse")}
           </ButtonLink>
         </div>
+        </div>
+        <Image
+          src="/kttf-emblem.svg"
+          alt="Kyrgyz Table Tennis Federation"
+          width={180}
+          height={180}
+          unoptimized
+          className="hidden shrink-0 md:block"
+        />
       </section>
 
       {live.length > 0 && (
         <section>
-          <SectionTitle>Сейчас идут</SectionTitle>
+          <SectionTitle>{t("home.live")}</SectionTitle>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {live.map((d) => (
               <TournamentCard key={d.tournament.id} data={d} />
@@ -49,8 +62,8 @@ export default function HomeView() {
 
       {upcoming.length > 0 && (
         <section>
-          <SectionTitle action={<Link href="/tournaments" className="text-sm text-accent hover:underline">Все турниры</Link>}>
-            Ближайшие турниры
+          <SectionTitle action={<Link href="/tournaments" className="text-sm text-accent hover:underline">{t("home.allTournaments")}</Link>}>
+            {t("home.upcoming")}
           </SectionTitle>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {upcoming.map((d) => (
@@ -62,8 +75,8 @@ export default function HomeView() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section>
-          <SectionTitle action={<Link href="/ratings" className="text-sm text-accent hover:underline">Весь рейтинг</Link>}>
-            Топ-5 рейтинга
+          <SectionTitle action={<Link href="/ratings" className="text-sm text-accent hover:underline">{t("home.fullRating")}</Link>}>
+            {t("home.top5")}
           </SectionTitle>
           <Card>
             <ol className="divide-y divide-border">
@@ -82,8 +95,8 @@ export default function HomeView() {
         </section>
 
         <section>
-          <SectionTitle action={<Link href="/matches" className="text-sm text-accent hover:underline">Все матчи</Link>}>
-            Последние матчи
+          <SectionTitle action={<Link href="/matches" className="text-sm text-accent hover:underline">{t("home.allMatches")}</Link>}>
+            {t("home.recent")}
           </SectionTitle>
           <Card>
             <ul className="divide-y divide-border">
@@ -91,7 +104,7 @@ export default function HomeView() {
                 return (
                   <li key={m.id} className="px-4 py-3 text-sm">
                     <div className="mb-1 text-xs text-muted">
-                      {tournament.name} · {m.label}
+                      {tournament.name} · {tg(m.label)}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={m.winner === m.p1 ? "font-semibold" : ""}>
@@ -119,14 +132,14 @@ export default function HomeView() {
       </div>
 
       <p className="text-center text-xs text-muted">
-        Это демо-версия: результаты и новые турниры сохраняются только в этом браузере.{" "}
+        {t("home.demoNote")}{" "}
         <button
           onClick={() => {
-            if (window.confirm("Сбросить все изменения и вернуть исходные тестовые данные?")) resetDemo();
+            if (window.confirm(t("home.resetConfirm"))) resetDemo();
           }}
           className="text-accent hover:underline"
         >
-          Сбросить демо-данные
+          {t("home.reset")}
         </button>
       </p>
     </div>

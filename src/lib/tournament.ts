@@ -92,92 +92,105 @@ function makeMatch(
 }
 
 /* ======================================================================
-   Турнирная таблица
+   Турнирная таблица (по правилам ITTF)
    ====================================================================== */
 
+interface TieStats {
+  score: number;
+  setsWon: number;
+  setsLost: number;
+  pointsWon: number;
+  pointsLost: number;
+}
+
+/** Доля выигранного: та же сортировка, что и по отношению «выиграно / проиграно» */
 function share(won: number, lost: number): number {
   return won + lost === 0 ? 0 : won / (won + lost);
 }
 
 /**
- * Очки: 2 за победу, 1 за поражение, 0 за неявку.
- * При равенстве очков: личные встречи, затем соотношение партий и мячей.
+ * Очки и соотношения по указанным матчам.
+ * Победа — 2 очка, поражение — 1, неявка — 0.
+ * Неявка в партиях и мячах считается как 3:0 (или 2:0) с 11:0 в каждой партии.
  */
-export function computeStandings(ids: string[], matches: Match[], headToHead = true): StandingRow[] {
-  const rows = new Map<string, StandingRow>();
-  const noShows = new Map<string, number>();
-  for (const id of ids) {
-    rows.set(id, {
-      playerId: id, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0,
-      pointsWon: 0, pointsLost: 0, score: 0, place: 0,
-    });
-  }
-
+function tieStats(ids: string[], matches: Match[], need: number): Map<string, TieStats> {
+  const st = new Map<string, TieStats>();
+  for (const id of ids) st.set(id, { score: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0 });
   for (const m of matches) {
-    if (!m.winner || !m.loser) continue;
-    const w = rows.get(m.winner);
-    const l = rows.get(m.loser);
+    if (!m.winner || !m.loser || !m.p1 || !m.p2) continue;
+    const w = st.get(m.winner);
+    const l = st.get(m.loser);
     if (!w || !l) continue;
-    w.played++;
-    l.played++;
-    w.won++;
-    l.lost++;
+    w.score += 2;
     if (m.walkover) {
-      noShows.set(m.loser, (noShows.get(m.loser) ?? 0) + 1);
+      w.setsWon += need;
+      l.setsLost += need;
+      w.pointsWon += 11 * need;
+      l.pointsLost += 11 * need;
       continue;
     }
-    if (m.score && m.p1 && m.p2) {
-      const r1 = rows.get(m.p1);
-      const r2 = rows.get(m.p2);
-      if (r1 && r2) {
-        r1.setsWon += m.score[0]; r1.setsLost += m.score[1];
-        r2.setsWon += m.score[1]; r2.setsLost += m.score[0];
-        for (const [a, b] of m.sets ?? []) {
-          r1.pointsWon += a; r1.pointsLost += b;
-          r2.pointsWon += b; r2.pointsLost += a;
-        }
-      }
+    l.score += 1;
+    const a = st.get(m.p1);
+    const b = st.get(m.p2);
+    if (!a || !b || !m.score) continue;
+    a.setsWon += m.score[0]; a.setsLost += m.score[1];
+    b.setsWon += m.score[1]; b.setsLost += m.score[0];
+    for (const [x, y] of m.sets ?? []) {
+      a.pointsWon += x; a.pointsLost += y;
+      b.pointsWon += y; b.pointsLost += x;
     }
   }
+  return st;
+}
 
-  const list = [...rows.values()];
-  for (const r of list) r.score = r.won * 2 + (r.lost - (noShows.get(r.playerId) ?? 0));
-  list.sort((a, b) => b.score - a.score);
-
-  const result: StandingRow[] = [];
-  let i = 0;
-  while (i < list.length) {
-    let j = i;
-    while (j < list.length && list[j].score === list[i].score) j++;
-    const tied = list.slice(i, j);
-    if (tied.length > 1) {
-      const tiedIds = new Set(tied.map((r) => r.playerId));
-      const mini = headToHead
-        ? computeStandings(
-            [...tiedIds],
-            matches.filter((m) => m.p1 && m.p2 && tiedIds.has(m.p1) && tiedIds.has(m.p2)),
-            false,
-          )
-        : [];
-      const miniById = new Map(mini.map((r) => [r.playerId, r]));
-      tied.sort((a, b) => {
-        const ma = miniById.get(a.playerId);
-        const mb = miniById.get(b.playerId);
-        if (ma && mb) {
-          if (mb.score !== ma.score) return mb.score - ma.score;
-          const ds = share(mb.setsWon, mb.setsLost) - share(ma.setsWon, ma.setsLost);
-          if (ds !== 0) return ds;
-        }
-        const s = share(b.setsWon, b.setsLost) - share(a.setsWon, a.setsLost);
-        if (s !== 0) return s;
-        return share(b.pointsWon, b.pointsLost) - share(a.pointsWon, a.pointsLost);
+/**
+ * Порядок игроков по правилам ITTF:
+ * 1) очки; при равенстве — только встречи между равными игроками:
+ * 2) очки в этих встречах, 3) соотношение партий, 4) соотношение мячей.
+ * Как только кто-то отделился, процедура начинается заново для оставшихся равных.
+ * Если равенство не разрешилось — жребий (здесь: порядок посева).
+ */
+function rankPlayers(ids: string[], matches: Match[], need: number): string[] {
+  if (ids.length < 2) return ids;
+  const inside = new Set(ids);
+  const between = matches.filter((m) => m.p1 && m.p2 && inside.has(m.p1) && inside.has(m.p2));
+  const st = tieStats(ids, between, need);
+  const criteria: ((s: TieStats) => number)[] = [
+    (s) => s.score,
+    (s) => share(s.setsWon, s.setsLost),
+    (s) => share(s.pointsWon, s.pointsLost),
+  ];
+  for (const crit of criteria) {
+    const values = [...new Set(ids.map((id) => crit(st.get(id) as TieStats)))].sort((x, y) => y - x);
+    if (values.length > 1) {
+      return values.flatMap((v) => {
+        const group = ids.filter((id) => crit(st.get(id) as TieStats) === v);
+        return group.length > 1 ? rankPlayers(group, matches, need) : group;
       });
     }
-    result.push(...tied);
-    i = j;
   }
-  result.forEach((r, idx) => { r.place = idx + 1; });
-  return result;
+  return ids;
+}
+
+/** Таблица группы: строки в порядке мест. ids — игроки в порядке посева. */
+export function computeStandings(ids: string[], matches: Match[], bestOf = 5): StandingRow[] {
+  const need = Math.ceil(bestOf / 2);
+  const st = tieStats(ids, matches, need);
+  const played = new Map<string, { played: number; won: number; lost: number }>();
+  for (const id of ids) played.set(id, { played: 0, won: 0, lost: 0 });
+  for (const m of matches) {
+    if (!m.winner || !m.loser) continue;
+    const w = played.get(m.winner);
+    const l = played.get(m.loser);
+    if (!w || !l) continue;
+    w.played++; w.won++;
+    l.played++; l.lost++;
+  }
+  return rankPlayers(ids, matches, need).map((id, i) => {
+    const s = st.get(id) as TieStats;
+    const p = played.get(id) ?? { played: 0, won: 0, lost: 0 };
+    return { playerId: id, ...p, ...s, place: i + 1 };
+  });
 }
 
 /* ======================================================================
@@ -346,10 +359,14 @@ function buildBracket(
   prefix: string,
   title: string,
   placeFrom = 1,
+  separate?: { groupOf: Map<string, number>; groupCount: number },
 ): BracketResult {
   let size = 2;
   while (size < seeded.length) size *= 2;
-  const slots = seedOrder(size).map((s) => (s <= seeded.length ? (seeded[s - 1] ?? null) : BYE));
+  const slots =
+    separate && seeded.every((id) => id !== null)
+      ? separatedSlots(seeded as string[], size, separate.groupOf, separate.groupCount)
+      : seedOrder(size).map((s) => (s <= seeded.length ? (seeded[s - 1] ?? null) : BYE));
   const nodes = buildTemplate(kind, size, placeFrom - 1);
 
   const winners: (string | null)[] = [];
@@ -426,6 +443,43 @@ function buildBracket(
 
   placements.sort((x, y) => parseInt(x.place) - parseInt(y.place));
   return { data: { title, kind, sections }, matches, placements };
+}
+
+/**
+ * Расстановка вышедших из групп по сетке: игроки одной группы разводятся как можно дальше
+ * (первое и второе место группы — в разные половины, при возможности встречаются только в финале).
+ * seeded идёт «ярусами»: все первые места, затем все вторые… Каждый ярус занимает позиции своих номеров посева.
+ */
+function separatedSlots(seeded: string[], size: number, groupOf: Map<string, number>, groupCount: number): string[] {
+  const order = seedOrder(size); // order[позиция] = номер посева
+  const positionOfSeed = new Map(order.map((seed, pos) => [seed, pos]));
+  const slots: string[] = Array.from({ length: size }, () => BYE);
+  const taken = new Set<number>();
+  // через сколько кругов могут встретиться позиции a и b (больше — позже)
+  const meetSize = (a: number, b: number) => 2 ** Math.floor(Math.log2(a ^ b) + 1);
+
+  seeded.forEach((id, i) => {
+    const tier = Math.floor(i / groupCount);
+    const candidates: number[] = [];
+    for (let seed = tier * groupCount + 1; seed <= Math.min((tier + 1) * groupCount, seeded.length); seed++) {
+      const pos = positionOfSeed.get(seed);
+      if (pos !== undefined && !taken.has(pos)) candidates.push(pos);
+    }
+    const mates = [...taken].filter((pos) => groupOf.get(slots[pos]) === groupOf.get(id));
+    let best = candidates[0];
+    let bestScore = -1;
+    for (const pos of candidates) {
+      const score = mates.length ? Math.min(...mates.map((m) => meetSize(pos, m))) : Infinity;
+      if (score > bestScore) {
+        bestScore = score;
+        best = pos;
+      }
+    }
+    if (best === undefined) return;
+    slots[best] = id;
+    taken.add(best);
+  });
+  return slots;
 }
 
 /* ======================================================================
@@ -521,7 +575,7 @@ export function buildTournament(t: Tournament, results: Results): TournamentData
     placeOffset: offset,
     playerIds: ids,
     matches,
-    standings: computeStandings(ids, matches),
+    standings: computeStandings(ids, matches, t.bestOf),
     complete: matches.length > 0 && matches.every((m) => m.winner),
   });
 
@@ -547,24 +601,25 @@ export function buildTournament(t: Tournament, results: Results): TournamentData
     const restCount = t.playerIds.length - firstCount;
     const pick = (from: number, to: number, count: number) =>
       done ? qualifiers(groups, from, to) : Array.from({ length: count }, () => null);
+    const groupOf = new Map<string, number>();
+    groups.forEach((g, gi) => g.playerIds.forEach((id) => groupOf.set(id, gi)));
+    const separate = { groupOf, groupCount };
 
     if (t.format === "groups-playoff") {
-      const b = buildBracket(t, kind, pick(0, advance, firstCount), results, "po", "Сетка");
+      const b = buildBracket(t, kind, pick(0, advance, firstCount), results, "po", "Сетка", 1, separate);
       brackets.push(b);
       placements = b.placements;
     } else if (t.format === "groups-two-finals") {
-      const f1 = buildBracket(t, kind, pick(0, advance, firstCount), results, "f1", "Финал 1");
+      const f1 = buildBracket(t, kind, pick(0, advance, firstCount), results, "f1", "Финал 1", 1, separate);
       brackets.push(f1);
       if (restCount > 1) {
-        const f2 = buildBracket(t, kind, pick(advance, maxSize, restCount), results, "f2", "Финал 2", firstCount + 1);
+        const f2 = buildBracket(t, kind, pick(advance, maxSize, restCount), results, "f2", "Финал 2", firstCount + 1, separate);
         brackets.push(f2);
       }
       placements = brackets.flatMap((b) => b.placements);
     } else if (done) {
       // финалы по кругу «с зачётом»: встречи из одной группы переносятся, остальные играются заново
       const groupMatches = groups.flatMap((g) => g.matches);
-      const groupOf = new Map<string, number>();
-      groups.forEach((g, gi) => g.playerIds.forEach((id) => groupOf.set(id, gi)));
       const finals = [qualifiers(groups, 0, advance), qualifiers(groups, advance, maxSize)].filter((f) => f.length > 1);
       let offset = 0;
       finals.forEach((ids, fi) => {

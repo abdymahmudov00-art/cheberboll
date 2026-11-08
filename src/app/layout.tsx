@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/layout/header/Header";
 import Footer from "@/components/layout/footer/Footer";
 import { DataProvider } from "@/components/providers/DataProvider";
+import { PREFS_BOOT_SCRIPT } from "@/lib/prefs";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +29,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* тема и язык ставятся до отрисовки, чтобы страница не мигала */}
+        <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <DataProvider>
           <Header />

@@ -5,14 +5,18 @@ import { useData } from "@/components/providers/DataProvider";
 import { PlayerName } from "@/components/ui/PlayerName";
 import { formatSets } from "@/lib/scoring";
 import { matchScoreText } from "@/lib/labels";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Props {
   matches: Match[];
   onMatchClick: (m: Match) => void;
+  /** Турнир завершён: только просмотр счёта */
+  readOnly?: boolean;
 }
 
-export default function MatchList({ matches, onMatchClick }: Props) {
+export default function MatchList({ matches, onMatchClick, readOnly = false }: Props) {
   const { live } = useData();
+  const { t, tg } = useI18n();
   return (
     <ul className="divide-y divide-border">
       {matches.map((m) => {
@@ -22,7 +26,7 @@ export default function MatchList({ matches, onMatchClick }: Props) {
           <li key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
             <span className="w-full text-xs text-muted sm:w-44">
               {m.number ? `№${m.number} · ` : ""}
-              {m.label}
+              {tg(m.label)}
             </span>
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className={m.winner && m.winner === m.p1 ? "font-semibold" : ""}>
@@ -35,7 +39,7 @@ export default function MatchList({ matches, onMatchClick }: Props) {
             </span>
             {m.sets && <span className="hidden text-xs text-muted md:inline">{formatSets(m.sets)}</span>}
             {table && !m.winner && (
-              <span className="rounded-full bg-win/15 px-2 py-0.5 text-xs font-medium text-win">Стол {table}</span>
+              <span className="rounded-full bg-win/15 px-2 py-0.5 text-xs font-medium text-win">{t("sd.table", { n: table })}</span>
             )}
             {playable && (
               <button
@@ -44,7 +48,7 @@ export default function MatchList({ matches, onMatchClick }: Props) {
                   m.winner ? "border border-border hover:bg-foreground/5" : "bg-accent text-white hover:opacity-90"
                 }`}
               >
-                {m.winner ? "Изменить" : "Ввести счёт"}
+                {readOnly ? t("ml.view") : m.winner ? t("ml.edit") : t("ml.enter")}
               </button>
             )}
           </li>
